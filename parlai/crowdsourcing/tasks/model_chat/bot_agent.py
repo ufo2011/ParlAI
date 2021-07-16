@@ -44,8 +44,7 @@ class TurkLikeAgent:
                 act_out = self.model_agent.act()
         else:
             act_out = self.model_agent.act()
-        act_out = Message(act_out)
-        # Wrap as a Message for compatibility with older ParlAI models
+        act_out = Message(act_out).json_safe_payload()
 
         if 'dict_lower' in self.opt and not self.opt['dict_lower']:
             # model is cased so we don't want to normalize the reply like below
@@ -53,7 +52,7 @@ class TurkLikeAgent:
         else:
             final_message_text = normalize_reply(act_out['text'])
 
-        act_out.force_set('text', final_message_text)
+        act_out['text'] = final_message_text
         assert ('episode_done' not in act_out) or (not act_out['episode_done'])
         self.turn_idx += 1
         return {**act_out, 'episode_done': False}

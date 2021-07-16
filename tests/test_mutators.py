@@ -163,11 +163,11 @@ class TestSpecificMutators(unittest.TestCase):
         # check there was a mutation
         assert ex1['text'] == "\n".join(e['text'] for e in [EXAMPLE1])
         assert ex2['text'] == "\n".join(
-            h for h in [EXAMPLE1['text'], EXAMPLE1['labels'][0], EXAMPLE2['text']]
+            [EXAMPLE1['text'], EXAMPLE1['labels'][0], EXAMPLE2['text']]
         )
         assert ex3['text'] == "\n".join(e['text'] for e in [EXAMPLE3])
         assert ex4['text'] == "\n".join(
-            h for h in [EXAMPLE3['text'], EXAMPLE3['labels'][0], EXAMPLE4['text']]
+            [EXAMPLE3['text'], EXAMPLE3['labels'][0], EXAMPLE4['text']]
         )
 
     def test_last_turn(self):
@@ -226,3 +226,27 @@ class TestSpecificMutators(unittest.TestCase):
         assert set(ex2['text'].split()) == set(EXAMPLE2['text'].split())
         assert set(ex3['text'].split()) == set(EXAMPLE3['text'].split())
         assert set(ex4['text'].split()) == set(EXAMPLE4['text'].split())
+
+
+class TestMutatorStickiness(unittest.TestCase):
+    """
+    Test that mutations DO NOT stick with episode.
+    """
+
+    def test_not_sticky(self):
+        pp = ParlaiParser(True, False)
+        opt = pp.parse_kwargs(
+            task='integration_tests:multiturn',
+            mutators='flatten',
+            datatype='train:ordered',
+        )
+        teacher = create_task_agent_from_taskname(opt)[0]
+        first_epoch = []
+        second_epoch = []
+        for _ in range(teacher.num_examples()):
+            first_epoch.append(teacher.act())
+        teacher.reset()
+        for _ in range(teacher.num_examples()):
+            second_epoch.append(teacher.act())
+
+        assert all(f == s for f, s in zip(first_epoch, second_epoch))

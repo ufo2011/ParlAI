@@ -442,10 +442,6 @@ class TrainLoop:
         """
         Save the model to disk, possibly with a suffix.
         """
-        if not is_primary_worker():
-            # never do IO as a non-primary worker
-            return
-
         if not self.opt.get('model_file'):
             # nothing to save to, just exit
             return
@@ -453,6 +449,13 @@ class TrainLoop:
         fn = self.opt['model_file']
         if suffix:
             fn += suffix
+
+        if not is_primary_worker():
+            # never do IO as a non-primary worker
+            if hasattr(self.agent, 'save_nonprimary'):
+                self.agent.save_nonprimary(fn)
+            return
+
         while True:
             # don't ever let a ctrl-c interrupt saving
             try:
@@ -477,6 +480,7 @@ class TrainLoop:
                     'train_reports': self.train_reports,
                     'valid_reports': self.valid_reports,
                     'best_valid': self.best_valid,
+                    'impatience': self.impatience,
                 },
                 f,
                 indent=4,
@@ -516,15 +520,6 @@ class TrainLoop:
             valid_report['total_exs'] = self._total_exs
             self.wb_logger.log_metrics('valid', self.parleys, valid_report)
 
-        # saving
-        if (
-            opt.get('model_file')
-            and opt.get('save_after_valid')
-            and is_primary_worker()
-        ):
-            logging.info(f"saving model checkpoint: {opt['model_file']}.checkpoint")
-            self.save_model('.checkpoint')
-
         # send valid metrics to agent if the agent wants them
         if hasattr(self.agent, 'receive_metrics'):
             self.agent.receive_metrics(valid_report)
@@ -551,7 +546,7 @@ class TrainLoop:
             )
             self.best_valid = new_valid
             self.impatience = 0
-            if opt.get('model_file') and is_primary_worker():
+            if opt.get('model_file'):
                 logging.info(f"saving best valid model: {opt['model_file']}")
                 self.save_model()
                 self.saved = True
@@ -572,6 +567,11 @@ class TrainLoop:
                 )
             )
         self.validate_time.reset()
+
+        # saving
+        if opt.get('model_file') and opt.get('save_after_valid'):
+            logging.info(f"saving model checkpoint: {opt['model_file']}.checkpoint")
+            self.save_model('.checkpoint')
 
         # check if we are out of patience
         if (
@@ -719,24 +719,26 @@ class TrainLoop:
             self._total_epochs = self._preempted_epochs + sum(
                 all_gather_list(world.get_total_epochs())
             )
-            train_time, log_time, validate_time = sync_object(
+            train_time, log_time, validate_time, save_time = sync_object(
                 (
                     self.train_time.time(),
                     self.log_time.time(),
                     self.validate_time.time(),
+                    self.save_time.time(),
                 )
             )
         else:
-            train_time, log_time, validate_time = (
+            train_time, log_time, validate_time, save_time = (
                 self.train_time.time(),
                 self.log_time.time(),
                 self.validate_time.time(),
+                self.save_time.time(),
             )
             self._total_epochs = self._preempted_epochs + (
                 num_workers() * world.get_total_epochs()
             )
 
-        return train_time, log_time, validate_time
+        return train_time, log_time, validate_time, save_time
 
     def log(self):
         """
@@ -784,11 +786,13 @@ class TrainLoop:
         if opt['wandb_log'] and is_primary_worker():
             self.wb_logger.log_metrics('train', self.parleys, train_report)
 
-    def train(self):
-        """
-        Perform a training run.
+        return train_report
 
-        :return: tuple of reports (validation_report, test_report)
+    def train_steps(self):
+        """
+        Core training loop.
+
+        Yields a metrics dict with each log.
         """
         logging.info('training...')
         opt = self.opt
@@ -807,14 +811,14 @@ class TrainLoop:
                 self._last_log_steps += 1 / self.update_freq
 
                 # the following additionally updates self._total_epochs
-                train_time, log_time, validate_time = self._get_time(world)
+                train_time, log_time, validate_time, save_time = self._get_time(world)
                 # get the total training examples done, compute epochs
                 exs_per_epoch = world.num_examples()
                 self._total_exs = int(np.round(self._total_epochs * exs_per_epoch))
 
                 # check counters and timers
                 if self._total_epochs >= self.max_num_epochs:
-                    self.log()
+                    yield self.log()
                     logging.info(
                         f'num_epochs completed:{self.max_num_epochs} time elapsed:{train_time}s'
                     )
@@ -832,7 +836,7 @@ class TrainLoop:
                     log_time > self.log_every_n_secs
                     or self._last_log_steps >= self.log_every_n_steps
                 ):
-                    self.log()
+                    yield self.log()
                 if (
                     validate_time > self.val_every_n_secs
                     or self._total_epochs - self.last_valid_epoch
@@ -842,7 +846,8 @@ class TrainLoop:
                 ):
                     try:
                         # log before we validate
-                        self.log()
+                        if self._last_log_steps:
+                            yield self.log()
                         world.reset_metrics()
                         stop_training = self.validate()
                     except StopTrainException:
@@ -855,11 +860,7 @@ class TrainLoop:
                         break
                     # make sure metrics are clean before we log
                     world.reset_metrics()
-                if (
-                    self.save_time.time() > self.save_every_n_secs
-                    and opt.get('model_file')
-                    and is_primary_worker()
-                ):
+                if save_time > self.save_every_n_secs and opt.get('model_file'):
                     logging.info(
                         f"saving model checkpoint: {opt['model_file']}.checkpoint"
                     )
@@ -868,7 +869,7 @@ class TrainLoop:
                     self.save_model('.checkpoint')
                     self.save_time.reset()
 
-        if not self.saved and is_primary_worker():
+        if not sync_object(self.saved):
             # save agent
             self.save_model()
 
@@ -885,6 +886,17 @@ class TrainLoop:
             del self.valid_worlds
             # reload best validation model
             self.agent = create_agent(opt)
+
+    def train(self):
+        """
+        Perform a training run.
+
+        :return: tuple of reports (validation_report, test_report)
+        """
+        opt = self.opt
+        for _train_log in self.train_steps():
+            # we've already done what we need in these
+            pass
 
         # perform final validation/testing
         valid_worlds = load_eval_worlds(self.agent, opt, 'valid')

@@ -17,6 +17,7 @@ tutorial_fast
 tutorial_mutators
 tutorial_crowdsourcing
 tutorial_chat_service
+tutorial_swap_components
 tutorial_tests
 ```
 
@@ -45,6 +46,7 @@ zoo
 cli_usage
 cli_advanced
 cli_custom
+opt_presets
 ```
 
 ```{toctree}

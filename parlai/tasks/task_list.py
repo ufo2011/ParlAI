@@ -126,6 +126,21 @@ task_list = [
         },
     },
     {
+        "id": "CMU_DoG",
+        "display_name": "CMU Document Grounded Conversations",
+        "task": "cmu_dog",
+        "tags": ["ChitChat", "Grounded"],
+        "description": (
+            "A document grounded dataset for text conversations, where the "
+            "documents are Wikipedia articles about popular movies. Consists "
+            "of 4112 conversations with an average of 21.43 turns per conversation."
+        ),
+        "links": {
+            "arXiv": "https://arxiv.org/abs/1809.07358",
+            "github": "https://github.com/festvox/datasets-CMU_DoG",
+        },
+    },
+    {
         "id": "COPA",
         "display_name": "Choice of Plausible Alternatives",
         "task": "copa",
@@ -274,6 +289,21 @@ task_list = [
         "links": {"arXiv": "https://arxiv.org/abs/1706.05125"},
     },
     {
+        "id": "Glue",
+        "display_name": "Glue",
+        "task": "glue",
+        "tags": [],
+        "description": (
+            "GLUE, the General Language Understanding Evaluation benchmark is "
+            "a collection of resources for training, evaluating, and analyzing "
+            "natural language understanding systems."
+        ),
+        "links": {
+            "website": "https://gluebenchmark.com/",
+            "website2": "https://huggingface.co/datasets/glue",
+        },
+    },
+    {
         "id": "HotpotQA",
         "display_name": "HotpotQA",
         "task": "hotpotqa",
@@ -287,6 +317,14 @@ task_list = [
             "to correctly answer the question."
         ),
         "links": {"arXiv": "https://arxiv.org/abs/1809.09600"},
+    },
+    {
+        "id": "HuggingFace",
+        "display_name": "HuggingFace",
+        "task": "huggingface",
+        "tags": [],
+        "description": ("HuggingFace datasets"),
+        "links": {"website": "https://huggingface.co/"},
     },
     {
         "id": "LIGHT-Dialogue",
@@ -563,6 +601,22 @@ task_list = [
             "Wikipedia."
         ),
         "links": {"arXiv": "https://arxiv.org/abs/1606.05250"},
+    },
+    {
+        "id": "SuperGLUE",
+        "display_name": "SuperGLUE",
+        "task": "superglue",
+        "tags": [],
+        "description": (
+            "SuperGLUE (https://super.gluebenchmark.com/) is a new benchmark "
+            "styled after GLUE with a new set of more difficult language "
+            "understanding tasks, improved resources, and a new public "
+            "leaderboard."
+        ),
+        "links": {
+            "website": "https://super.gluebenchmark.com/",
+            "website2": "https://huggingface.co/datasets/super_glue",
+        },
     },
     {
         "id": "TriviaQA",
@@ -1349,5 +1403,42 @@ task_list = [
         "tags": ["ChitChat", "Entailment"],
         "description": "Task for detect whether the last utterance contradicts previous dialogue history.",
         "links": {"arXiv": "https://arxiv.org/abs/2012.13391"},
+    },
+    {
+        "id": "metalwoz",
+        "display_name": "MetaLWOz",
+        "task": "metalwoz",
+        "tags": ["Goal"],
+        "description": (
+            "Meta-Learning Wizard-of-Oz (MetaLWOz) is a dataset designed to help "
+            "develop models capable of predicting user responses in unseen domains."
+        ),
+        "links": {
+            "paper": "http://workshop.colips.org/dstc7/dstc8/DTSC8_multidomain_task_proposal.pdf",
+            "website": "https://www.microsoft.com/en-us/research/project/metalwoz/",
+        },
+    },
+    {
+        "id": "Wizard_of_Internet",
+        "display_name": "Wizard_of_Internet",
+        "task": "wizard_of_internet",
+        "tags": ["ChitChat"],
+        "description": (
+            "A dataset with conversations directly grounded with knowledge "
+            "retrieved from internet. One of the participants has access to internet search. "
+            "The other side has an assigned persona that provides the topic of the conversation. "
+            "Contains 93.7k utterances from 9.6k conversations, split into train, "
+            "test, and valid sets."
+        ),
+    },
+    {
+        "id": "msc",
+        "display_name": "MultiSessionChat",
+        "task": "msc",
+        "tags": ["ChitChat"],
+        "description": (
+            "A multi-session human-human chit-chat dataset consist of session 2-5 follow up from PersonaChat "
+            "It contains 5k full converesations from session 2 to session 5 (session 1 being PersonaChat) "
+        ),
     },
 ]
